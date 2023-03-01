@@ -1,1 +1,0 @@
-# jomeruu.github.io
