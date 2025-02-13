@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        #qrcode-container {
+            position: relative;
+            display: inline-block;
+            background: transparent;
+        }
+        canvas {
+            width: 200px !important;
+            height: 200px !important;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <input type="text" id="text" placeholder="Enter Zoom link">
+    <button onclick="generateQR()">Generate QR Code</button>
+    <div id="qrcode-container">
+        <canvas id="canvas"></canvas>
+    </div>
+    <script>
+        function generateQR() {
+            let canvas = document.getElementById("canvas");
+            let ctx = canvas.getContext("2d");
+            canvas.width = 2000;
+            canvas.height = 2000;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let text = document.getElementById("text").value;
+            
+            let qr = new QRCode(document.createElement("div"), {
+                text: text,
+                width: 2000,
+                height: 2000,
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            setTimeout(() => {
+                let qrCanvas = qr._oDrawing._elCanvas;
+                
+                // Redraw QR code on the transparent canvas
+                ctx.drawImage(qrCanvas, 0, 0);
+                
+                let logo = new Image();
+                logo.src = "kippap.png"; // Make sure this image has a transparent background
+                logo.onload = () => {
+                    let logoSize = 500; // Adjust to fit well
+                    ctx.drawImage(logo, (canvas.width - logoSize) / 2, (canvas.height - logoSize) / 2, logoSize, logoSize);
+                };
+            }, 500);
+        }
+    </script>
+</body>
+</html>
