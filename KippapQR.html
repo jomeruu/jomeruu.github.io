@@ -6,29 +6,88 @@
     <title>QR Code Generator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+            margin: 0;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        input {
+            width: 250px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
         #qrcode-container {
             position: relative;
-            display: inline-block;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
             background: transparent;
         }
+
         canvas {
-            width: 200px !important;
-            height: 200px !important;
+            width: 250px !important;
+            height: 250px !important;
             background: transparent;
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
-    <input type="text" id="text">
-    <button onclick="generateQR()">Generate QR Code</button>
-    <div id="qrcode-container">
-        <canvas id="canvas"></canvas>
+
+    <h1>QR Code Generator</h1>
+    <div class="container">
+        <input type="text" id="text" placeholder="Enter link or text">
+        <br>
+        <button onclick="generateQR()">Generate QR Code</button>
+        <div id="qrcode-container">
+            <canvas id="canvas"></canvas>
+        </div>
     </div>
+
     <script>
         function generateQR() {
             let canvas = document.getElementById("canvas");
             let ctx = canvas.getContext("2d");
-            canvas.width = 2000;
+            canvas.width = 2000;  // High resolution for quality
             canvas.height = 2000;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -44,17 +103,20 @@
             setTimeout(() => {
                 let qrCanvas = qr._oDrawing._elCanvas;
                 
-                // Redraw QR code on the transparent canvas
+                // Draw QR code on the transparent canvas
                 ctx.drawImage(qrCanvas, 0, 0);
                 
                 let logo = new Image();
-                logo.src = "kippap.png"; // Make sure this image has a transparent background
+                logo.src = "kippap.png"; // Ensure this image has a transparent background
                 logo.onload = () => {
-                    let logoSize = 500; // Adjust to fit well
-                    ctx.drawImage(logo, (canvas.width - logoSize) / 2, (canvas.height - logoSize) / 2, logoSize, logoSize);
+                    let logoSize = 500; // Adjust size for better visibility
+                    let centerX = (canvas.width - logoSize) / 2;
+                    let centerY = (canvas.height - logoSize) / 2;
+                    ctx.drawImage(logo, centerX, centerY, logoSize, logoSize);
                 };
             }, 500);
         }
     </script>
+
 </body>
 </html>
