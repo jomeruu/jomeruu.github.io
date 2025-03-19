@@ -35,47 +35,7 @@ button {
 
 <h1>Question Validation</h1>
 
-<textarea id="inputArea">
-Category: Situation 1. [For 1-10]
-
-Question Number: S1 1
-Question Text: English Vocabulary 
-Select the letter that corresponds to the correct answer based on the question's requirements. (For #1 - #10)
-Question Type: DESC
-
-Question Number: S1 2
-Question Text: My grandfather is always ______ in his giving to his grandchildren at Christmas.
-Choice 1: A. munificent (Correct Answer)
-Choice 2: B. grateful
-Choice 3: C. ambitious
-Choice 4: D. greedy
-Question Type: MC
-
-Question Number: S1 3
-Question Text: The ______ rumors damaged Hans' image, even though they were false.
-Choice 1: A. tantamount
-Choice 2: B. ebullient
-Choice 3: C. apocryphal (Correct Answer)
-Choice 4: D. bemused
-Question Type: MC
-
-Category:Situation 2
-
-Question Number:S2 1
-Question Text: This is a test
-Choice 1: A. test (Correct Answer)
-Question Type: MC
-
-Question Number: S2 2
-Question Text: This is another test.
-Choice 1: A. test (Correct Answer)
-Question Type: MC
-
-Question Number: S2 3
-Question Text: This is the final test.
-Choice 1: A. test (Correct Answer)
-Question Type: MC
-</textarea>
+<textarea id="inputArea"></textarea>
 
 <button onclick="validate()">Validate</button>
 
@@ -83,82 +43,119 @@ Question Type: MC
 
 <script>
 function validate() {
-  const inputText = document.getElementById("inputArea").value;
-  const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = ""; // Clear previous results
+  const inputText = document.getElementById("inputArea").value;
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = ""; // Clear previous results
 
-  const validationResult = validateNumberingAndFormatting(inputText);
+  const validationResult = validateNumberingAndFormatting(inputText);
 
-  if (validationResult.valid) {
-    resultsDiv.innerHTML = "<p class='success'>Input is valid.</p>";
-  } else {
-    resultsDiv.innerHTML = "<p class='error'>Input is invalid:</p>";
-    validationResult.errors.forEach(error => {
-      resultsDiv.innerHTML += `<p class='error'>${error}</p>`;
-    });
-  }
+  if (validationResult.valid) {
+    resultsDiv.innerHTML = "<p class='success'>Input is valid.</p>";
+  } else {
+    resultsDiv.innerHTML = "<p class='error'>Input is invalid:</p>";
+    validationResult.errors.forEach(error => {
+      resultsDiv.innerHTML += `<p class='error'>${error}</p>`;
+    });
+  }
 }
-
 
 function validateNumberingAndFormatting(inputText) {
-    const lines = inputText.split('\n');
-    let currentCategory = null;
-    let expectedQuestionNumber = 1;
-    let errors = [];
+  const lines = inputText.split('\n');
+  let currentCategory = null;
+  let expectedQuestionNumber = 1;
+  let errors = [];
+  let correctAnswersFound = false;
+  let currentQuestionType = null;
+  let choiceFound = false;
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
 
-        if (line === "") continue; // Skip empty lines
+    if (line === "") continue; // Skip empty lines
 
-        if (line.startsWith("Category:") || line.startsWith("Question Number:") || line.startsWith("Question Text:") || line.startsWith("Question Type:")) {
-            const parts = line.split(":");
-            if (parts.length !== 2 || parts[1].trim().startsWith(" ") || parts[1].trim() === "") {
-                errors.push(`Line ${i + 1}: Incorrect formatting after colon. Should be 'key: value' with one space after the colon.`);
-            }
-        } else if (line.startsWith("Choice ")) { // Corrected: Check for "Choice " with a space
-            const parts = line.split(":");
-            if (parts.length !== 2 || parts[1].trim() === "") { // Space after colon is optional for choices, but value should not be empty
-                errors.push(`Line ${i + 1}: Incorrect formatting after colon. Should be 'Choice #: value'.`);
-            }
-            if (line.includes("(Correct Answer)")) {
-                const correctParts = line.split("(Correct Answer)");
-                if (correctParts.length !== 2) {
-                    errors.push(`Line ${i + 1}: Choice line has multiple or zero "(Correct Answer)" indicators`);
+    if (line.startsWith("Category:")) {
+      currentCategory = line.substring("Category:".length).trim();
+      if (!currentCategory) {
+        errors.push(`Line ${i + 1}: Category cannot be empty.`);
+      }
+      if (i > 0 && lines[i - 1].trim() !== "") {
+        errors.push(`Line ${i + 1}: Category should have a line break above.`);
+      }
+      if (i < lines.length - 1 && lines[i + 1].trim() !== "") {
+        errors.push(`Line ${i + 1}: Category should have a line break below.`);
+      }
+    } else if (line.startsWith("Question Number:")) {
+      const questionNumber = line.substring("Question Number:".length).trim();
+      const match = questionNumber.match(/^(S\d+ )?(\d+)$/);
+
+      if (match) {
+        const actualNumber = parseInt(match[2], 10);
+        if (actualNumber !== expectedQuestionNumber) {
+          errors.push(`Line ${i + 1}: Incorrect question number. Expected ${expectedQuestionNumber}, got ${actualNumber}.`);
+        }
+        expectedQuestionNumber++;
+      }
+      if (i > 0 && lines[i - 1].trim() !== "") {
+        errors.push(`Line ${i + 1}: Question Number should have a line break above.`);
+      }
+      if (i > 1 && !lines[i-2].trim().startsWith("Category:") && !lines[i-2].trim().startsWith("Question Type:")) {
+          errors.push(`Line ${i + 1}: Question number must have a Category or Question type above the blank line.`);
+      }
+    } else if (line.startsWith("Question Text:")) {
+      const text = line.substring("Question Text:".length).trim();
+      if (text.split('\n').length > 2) {
+        errors.push(`Line ${i + 1}: Question text exceeds the allowed 2 line breaks.`);
+      }
+    } else if (line.startsWith("Choice ")) {
+      const parts = line.split(":");
+      if (parts.length < 2 || parts[1].trim() === "") {
+        errors.push(`Line ${i + 1}: Incorrect formatting after colon. Should be 'Choice #: value'.`);
+      }
+      if (line.includes("(Correct Answer)")) {
+        const correctParts = line.split("(Correct Answer)");
+        if (correctParts.length !== 2) {
+          errors.push(`Line ${i + 1}: Choice line has multiple or zero "(Correct Answer)" indicators`);
+        } else {
+          correctAnswersFound = true;
+        }
+      }
+      choiceFound = true;
+    } else if (line.startsWith("Question Type:")) {
+      currentQuestionType = line.substring("Question Type:".length).trim();
+      if(i<lines.length-1 && lines[i+1].trim() !== ""){
+          errors.push(`Line ${i + 1}: Question type must have a blank line below.`);
+      }
+        if(i<lines.length-2 && !lines[i+2].trim().startsWith("Category:") && !lines[i+2].trim().startsWith("Question Number:")) {
+            errors.push(`Line ${i + 1}: Question type must have a Category or Question Number below the blank line.`);
+        }
+        if (currentQuestionType === "DESC" && choiceFound) {
+          errors.push(`Line ${i + 1}: Question type DESC should not have any choices or correct answers.`);
+        }
+        if (currentQuestionType !== "DESC" && !correctAnswersFound && choiceFound) {
+            errors.push(`Line ${i+1}: At least one choice must be marked as the correct answer.`);
+        }
+        if(currentQuestionType === "MC"){
+            if(expectedQuestionNumber < 10 && expectedQuestionNumber.toString().length < 2) {
+                const questionNumberLine = lines.find(l => l.trim().startsWith("Question Number:"));
+                if(questionNumberLine) {
+                  const number = questionNumberLine.substring("Question Number:".length).trim();
+                  if(number.length < 2) {
+                    errors.push(`Line ${i+1}: MC question number must be 01, 02, ..., 09 for single digit question numbers.`);
+                  }
                 }
-            }
-        } else if (line.startsWith("Category:")) { // These checks remain for other validation
-            currentCategory = line.substring("Category:".length).trim();
-            if (!currentCategory) {
-                errors.push(`Line ${i + 1}: Category cannot be empty.`);
-            }
-        } else if (line.startsWith("Question Number:")) {
-            const questionNumber = line.substring("Question Number:".length).trim();
-            const match = questionNumber.match(/^(S\d+ )?(\d+)$/);
-            if (!match) {
-                errors.push(`Line ${i + 1}: Invalid question number format. Expected format: [S#]##`);
-            } else {
-                const actualNumber = parseInt(match[2], 10);
-                if (actualNumber !== expectedQuestionNumber) {
-                    errors.push(`Line ${i + 1}: Incorrect question number. Expected ${expectedQuestionNumber}, got ${actualNumber}.`);
-                }
-                expectedQuestionNumber++;
-            }
-        } else if (line.startsWith("Question Text:")) {
-            const text = line.substring("Question Text:".length).trim();
-            if (text.split('\n').length > 2) {
-                errors.push(`Line ${i + 1}: Question text exceeds the allowed 2 line breaks.`);
             }
         }
+        correctAnswersFound = false;
+        choiceFound = false;
     }
+  }
 
-    if (errors.length > 0) {
-        return { valid: false, errors: errors };
-    } else {
-        return { valid: true, errors: [] };
-    }
+  if (errors.length > 0) {
+    return { valid: false, errors: errors };
+  } else {
+    return { valid: true, errors: [] };
+  }
 }
-
 </script>
 
 </body>
