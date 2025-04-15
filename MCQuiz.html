@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Converter</title>
+<style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; margin-bottom: 10px; height: 200px; }
+        button { display: block; margin: 10px 0; padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Converter</h1>
+    <textarea id="input" placeholder="Paste your questions here"></textarea>
+    <button id="convert">Convert</button>
+    <button id="save">Save as XML</button>
+    <textarea id="output" readonly></textarea>
+
+    <script>
+document.getElementById("convert").addEventListener("click", () => {
+    const input = document.getElementById("input").value;
+    const output = document.getElementById("output");
+
+    let xml = "<quiz>\n";
+    const lines = input.split("\n");
+    let category = "", questionNumber = "", questionText = "", questionType = "", choices = [];
+    let collectingQuestionText = false;
+
+    lines.forEach(line => {
+        line = line.trim();
+
+        if (line.startsWith("Category:")) {
+            category = line.split(": ").slice(1).join(":");
+            xml += `    <question type="category">\n        <category>\n            <text>$module$/top/${category}</text>\n        </category>\n    </question>\n`;
+        } else if (line.startsWith("Question Number:")) {
+            questionNumber = line.split(": ").slice(1).join(":");
+        } else if (line.startsWith("Question Text:")) {
+            questionText = `<p>` + line.split(": ").slice(1).join(":") + `</p>`;
+            collectingQuestionText = true;
+        } else if (collectingQuestionText && !line.startsWith("Question Type:") && !line.startsWith("Choice")) {
+            questionText += `<p>${line}</p>`;  // Preserve multi-line format
+        } else if (line.startsWith("Question Type:")) {
+            questionType = line.split(": ").slice(1).join(":");
+            collectingQuestionText = false;
+        } else if (line.startsWith("Choice")) {
+            choices.push(line.split(": ").slice(1).join(":"));
+        }
+
+        // When question type is set, process and add to XML
+        if (questionType && (line.startsWith("Question Type:") || line.startsWith("Choice"))) {
+            if (questionType === "DESC") {
+                xml += `    <question type="description">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n    </question>\n`;
+            } else if (questionType === "MC" && choices.length > 0) {
+                xml += `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n`;
+
+                choices.forEach(choice => {
+                    let fraction = choice.includes("(Correct Answer)") ? "100" : "0";
+                    choice = choice.replace(" (Correct Answer)", "");
+
+                    xml += `        <answer fraction="${fraction}" format="html">\n            <text><![CDATA[<p>${choice}</p>]]></text>\n        </answer>\n`;
+                });
+
+                xml += `    </question>\n`;
+            }
+
+            // Reset values after processing question
+            questionNumber = "";
+            questionText = "";
+            questionType = "";
+            choices = [];
+            collectingQuestionText = false;
+        }
+    });
+
+    xml += "</quiz>";
+    output.value = xml;
+	
+	document.getElementById("save").addEventListener("click", () => {
+            const xmlContent = document.getElementById("output").value;
+            if (!xmlContent.trim()) {
+                alert("No XML content to save. Please convert first.");
+                return;
+            }
+
+            const blob = new Blob([xmlContent], { type: "application/xml" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "quiz.xml";
+            link.click();
+        });
+});
+    </script>
+
+</body>
+</html>
