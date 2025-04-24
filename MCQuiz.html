@@ -31,66 +31,97 @@ document.getElementById("convert").addEventListener("click", () => {
     lines.forEach(line => {
         line = line.trim();
 
+        // Check if we should process the *previous* question before starting a new one
+        // A new category or question number signals the end of the previous entry
+        if (line.startsWith("Category:") || line.startsWith("Question Number:")) {
+            if (questionType) { // Process the completed previous question
+                // *** Apply replacements before inserting into XML ***
+                questionText = questionText.replace(/\[PHOTO\]/g, '<img class="img-fluid align-top" role="presentation" src="');
+                questionText = questionText.replace(/\[\/PHOTO\]/g, '" alt="" width="500">');
+
+                if (questionType === "DESC") {
+                    xml += `    <question type="description">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n    </question>\n`;
+                } else if (questionType === "MC" && choices.length > 0) {
+                    xml += `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n`;
+                    choices.forEach(choice => {
+                        let fraction = choice.includes("(Correct Answer)") ? "100" : "0";
+                        choice = choice.replace(" (Correct Answer)", "");
+                        xml += `        <answer fraction="${fraction}" format="html">\n            <text><![CDATA[<p>${choice}</p>]]></text>\n        </answer>\n`;
+                    });
+                    xml += `    </question>\n`;
+                }
+                // Reset for the next question
+                questionNumber = ""; questionText = ""; questionType = ""; choices = []; collectingQuestionText = false;
+            }
+        }
+
+        // Process the current line
         if (line.startsWith("Category:")) {
             category = line.split(": ").slice(1).join(":");
             xml += `    <question type="category">\n        <category>\n            <text>$module$/top/${category}</text>\n        </category>\n    </question>\n`;
+            // Reset other fields when category changes
+            questionNumber = ""; questionText = ""; questionType = ""; choices = []; collectingQuestionText = false;
         } else if (line.startsWith("Question Number:")) {
             questionNumber = line.split(": ").slice(1).join(":");
+            collectingQuestionText = false; // Stop collecting previous question text if any
         } else if (line.startsWith("Question Text:")) {
             questionText = `<p>` + line.split(": ").slice(1).join(":") + `</p>`;
             collectingQuestionText = true;
         } else if (collectingQuestionText && !line.startsWith("Question Type:") && !line.startsWith("Choice")) {
-            questionText += `<p>${line}</p>`;  // Preserve multi-line format
+            // Only add non-empty lines to the question text
+             if (line) {
+                questionText += `<p>${line}</p>`; // Preserve multi-line format
+             }
         } else if (line.startsWith("Question Type:")) {
             questionType = line.split(": ").slice(1).join(":");
-            collectingQuestionText = false;
+            collectingQuestionText = false; // Stop collecting text when type is encountered
         } else if (line.startsWith("Choice")) {
+             collectingQuestionText = false; // Stop collecting text when choices start
             choices.push(line.split(": ").slice(1).join(":"));
-        }
-
-        // When question type is set, process and add to XML
-        if (questionType && (line.startsWith("Question Type:") || line.startsWith("Choice"))) {
-            if (questionType === "DESC") {
-                xml += `    <question type="description">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n    </question>\n`;
-            } else if (questionType === "MC" && choices.length > 0) {
-                xml += `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n`;
-
-                choices.forEach(choice => {
-                    let fraction = choice.includes("(Correct Answer)") ? "100" : "0";
-                    choice = choice.replace(" (Correct Answer)", "");
-
-                    xml += `        <answer fraction="${fraction}" format="html">\n            <text><![CDATA[<p>${choice}</p>]]></text>\n        </answer>\n`;
-                });
-
-                xml += `    </question>\n`;
-            }
-
-            // Reset values after processing question
-            questionNumber = "";
-            questionText = "";
-            questionType = "";
-            choices = [];
-            collectingQuestionText = false;
         }
     });
 
+     // Process the very last question in the input (if any)
+    if (questionType) {
+        // *** Apply replacements before inserting into XML ***
+        questionText = questionText.replace(/\[Photo\]/g, '<img class="img-fluid align-top" role="presentation" src="');
+        questionText = questionText.replace(/\[\/Photo\]/g, '" alt="" width="500">');
+
+        if (questionType === "DESC") {
+            xml += `    <question type="description">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n    </question>\n`;
+        } else if (questionType === "MC" && choices.length > 0) {
+            xml += `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n`;
+            choices.forEach(choice => {
+                let fraction = choice.includes("(Correct Answer)") ? "100" : "0";
+                choice = choice.replace(" (Correct Answer)", "");
+                xml += `        <answer fraction="${fraction}" format="html">\n            <text><![CDATA[<p>${choice}</p>]]></text>\n        </answer>\n`;
+            });
+            xml += `    </question>\n`;
+        }
+    }
+
+
     xml += "</quiz>";
     output.value = xml;
-	
-	document.getElementById("save").addEventListener("click", () => {
-            const xmlContent = document.getElementById("output").value;
-            if (!xmlContent.trim()) {
-                alert("No XML content to save. Please convert first.");
-                return;
-            }
+}); // End of convert event listener
 
-            const blob = new Blob([xmlContent], { type: "application/xml" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "quiz.xml";
-            link.click();
-        });
-});
+document.getElementById("save").addEventListener("click", () => {
+    const xmlContent = document.getElementById("output").value;
+    if (!xmlContent || xmlContent === "<quiz>\n</quiz>") {
+        alert("No XML content to save. Please convert some text first.");
+        return;
+    }
+
+    const blob = new Blob([xmlContent], { type: "application/xml;charset=utf-8" }); 
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "quiz.xml";
+    document.body.appendChild(link); 
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href); 
+}); // End of save event listener
+
     </script>
 
 </body>
