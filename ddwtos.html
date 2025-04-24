@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Converter</title>
+<style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; margin-bottom: 10px; height: 200px; }
+        button { display: block; margin: 10px 0; padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        /* Style for CDATA blocks in output for readability */
+        textarea#output { white-space: pre; overflow-wrap: normal; overflow-x: scroll; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Converter</h1>
+    <textarea id="input" placeholder="Paste your questions here."></textarea>
+    <button id="convert">Convert</button>
+    <button id="save">Save as XML</button>
+    <textarea id="output" readonly></textarea>
+
+    <script>
+function processQuestion(questionType, questionNumber, questionText, choices) {
+    let questionXml = "";
+    if (!questionType || !questionNumber) return ""; // Don't process incomplete entries
+
+    // Apply common replacements first
+    questionText = questionText.replace(/\[Photo\]/g, '<img class="img-fluid align-top" role="presentation" src="');
+    questionText = questionText.replace(/\[\/Photo\]/g, '" alt="" width="500">');
+
+    if (questionType === "DESC") {
+        questionXml = `    <question type="description">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>0</defaultgrade>\n        <penalty>0</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n    </question>\n`;
+    } else if (questionType === "MC" && choices.length > 0) {
+        questionXml = `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0.3333333</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <single>true</single>\n        <shuffleanswers>true</shuffleanswers>\n        <answernumbering>abc</answernumbering>\n        <correctfeedback format="html">\n            <text>Your answer is correct.</text>\n        </correctfeedback>\n        <partiallycorrectfeedback format="html">\n            <text>Your answer is partially correct.</text>\n        </partiallycorrectfeedback>\n        <incorrectfeedback format="html">\n            <text>Your answer is incorrect.</text>\n        </incorrectfeedback>\n        <shownumcorrect/>\n`;
+        choices.forEach(choice => {
+            let fraction = choice.includes("(Correct Answer)") ? "100" : "0";
+            choice = choice.replace(" (Correct Answer)", "").trim();
+            // Escape XML characters within the choice text if needed, but CDATA helps
+            questionXml += `        <answer fraction="${fraction}" format="html">\n            <text><![CDATA[<p>${choice}</p>]]></text>\n            <feedback format="html">\n                <text></text>\n            </feedback>\n        </answer>\n`;
+        });
+        questionXml += `    </question>\n`;
+    } else if (questionType === "DDWTOS" && choices.length > 0) {
+         questionXml = `    <question type="ddwtos">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0.3333333</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <shuffleanswers>1</shuffleanswers>\n        <correctfeedback format="html">\n            <text><![CDATA[<p>Your answer is correct.</p>]]></text>\n        </correctfeedback>\n        <partiallycorrectfeedback format="html">\n            <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>\n        </partiallycorrectfeedback>\n        <incorrectfeedback format="html">\n            <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>\n        </incorrectfeedback>\n        <shownumcorrect/>\n`;
+         choices.forEach((choice, index) => {
+             choice = choice.trim();
+             // Check if choice indicates the correct drop zone, e.g., "Choice 1 (Correct for [[1]]): text"
+             // For simplicity now, just adding all choices as draggable items for group 1.
+             // Determining *which* choice goes to *which* placeholder ([[1]], [[2]], etc.)
+             // typically requires more complex input format or post-processing in Moodle.
+             // This implementation assumes all choices are potential drops for any placeholder.
+             questionXml += `        <dragbox>\n            <text>${choice}</text>\n            <group>1</group>\n            <infinite>0</infinite>\n        </dragbox>\n`;
+         });
+         // Note: This basic DDWTOS doesn't automatically map specific choices to specific [[n]] placeholders.
+         // It makes all choices available to drag to any placeholder.
+         // Defining the correct drop zones usually happens within the Moodle interface
+         // or requires a more complex XML structure specifying drop zones.
+         questionXml += `    </question>\n`;
+    }
+    return questionXml;
+}
+
+document.getElementById("convert").addEventListener("click", () => {
+    const input = document.getElementById("input").value;
+    const output = document.getElementById("output");
+
+    let xml = "<quiz>\n";
+    const lines = input.split("\n");
+    let category = "", questionNumber = "", questionText = "", questionType = "", choices = [];
+    let collectingQuestionText = false;
+
+    lines.forEach(line => {
+        line = line.trim();
+
+        // Detect start of a new question or category to process the previous one
+        if (line.startsWith("Category:") || line.startsWith("Question Number:")) {
+            // Process the completed previous question before starting the new one
+            xml += processQuestion(questionType, questionNumber, questionText, choices);
+            // Reset for the next question/category
+            questionNumber = ""; questionText = ""; questionType = ""; choices = []; collectingQuestionText = false;
+        }
+
+        // Process the current line
+        if (line.startsWith("Category:")) {
+            category = line.split(": ").slice(1).join(":").trim();
+             if (category) { // Add category marker only if category text exists
+                xml += `\n    \n`;
+                xml += `    <question type="category">\n        <category>\n            <text>$course$/top/${category}</text>\n        </category>\n    </question>\n`;
+            }
+       } else if (line.startsWith("Question Number:")) {
+            questionNumber = line.split(": ").slice(1).join(":").trim();
+            collectingQuestionText = false;
+        } else if (line.startsWith("Question Text:")) {
+            // Start collecting question text, initialize with the first line
+            questionText = `<p>` + line.split(": ").slice(1).join(":").trim() + `</p>`;
+            collectingQuestionText = true;
+        } else if (collectingQuestionText && !line.startsWith("Question Type:") && !line.startsWith("Choice") && line !== "") {
+             // Append non-empty lines to the question text
+             questionText += `\n<p>${line}</p>`; // Add newline for readability in raw HTML
+        } else if (line.startsWith("Question Type:")) {
+            questionType = line.split(": ").slice(1).join(":").trim();
+            collectingQuestionText = false; // Stop collecting text
+        } else if (line.startsWith("Choice")) {
+             collectingQuestionText = false; // Stop collecting text
+             // Add choice text, keeping the marker (like "(Correct Answer)") for later processing
+            choices.push(line.split(": ").slice(1).join(":")); // Keep raw choice text initially
+        }
+        // Ignore empty lines and separators like "---"
+    });
+
+     // Process the very last question in the input
+    xml += processQuestion(questionType, questionNumber, questionText, choices);
+
+    xml += "</quiz>";
+    output.value = xml;
+}); // End of convert event listener
+
+document.getElementById("save").addEventListener("click", () => {
+    const xmlContent = document.getElementById("output").value;
+    if (!xmlContent || xmlContent.trim() === "<quiz>\n</quiz>") {
+        alert("No XML content to save. Please convert some text first.");
+        return;
+    }
+
+    const blob = new Blob([xmlContent], { type: "application/xml;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "quiz.xml";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}); // End of save event listener
+
+    </script>
+
+</body>
+</html>
