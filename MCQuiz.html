@@ -113,7 +113,7 @@ document.getElementById("convert").addEventListener("click", () => {
         } else if (lowerLine.startsWith("choice")) {
              collectingQuestionText = false; // Stop collecting text
              // Add choice text, keeping the marker (like "(Correct Answer)") for later processing
-            choices.push(line.substring("choice".length).replace(/^:\s*/, '').trim()); // Extract text after "Choice" and optional ": "
+            choices.push(line.split(": ").slice(1).join(":")); // Keep raw choice text initially
         }
         // Ignore empty lines and separators like "---"
     });
