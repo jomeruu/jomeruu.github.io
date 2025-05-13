@@ -36,238 +36,296 @@ button {
 <h1>Question Validation</h1>
 
 <textarea id="inputArea"></textarea>
-
+<br />
 <button onclick="validate()">Validate</button>
 
 <div id="results"></div>
 
 <script>
 function validate() {
-  const inputText = document.getElementById("inputArea").value;
-  const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = ""; // Clear previous results
+  const inputText = document.getElementById("inputArea").value;
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = ""; // Clear previous results
 
-  const validationResult = validateNumberingAndFormatting(inputText);
+  const validationResult = validateNumberingAndFormatting(inputText);
 
-  if (validationResult.valid) {
-    resultsDiv.innerHTML = "<p class='success'>Input is valid.</p>";
-  } else {
-    resultsDiv.innerHTML = "<p class='error'>Input is invalid:</p>";
-    validationResult.errors.forEach(error => {
-      resultsDiv.innerHTML += `<p class='error'>${error}</p>`;
-    });
-  }
+  if (validationResult.valid) {
+    resultsDiv.innerHTML = "<p class='success'>Input is valid.</p>";
+  } else {
+    resultsDiv.innerHTML = "<p class='error'>Input is invalid:</p>";
+    validationResult.errors.forEach(error => {
+      resultsDiv.innerHTML += `<p class='error'>${error}</p>`;
+    });
+  }
 }
 
 function validateNumberingAndFormatting(inputText) {
-  const lines = inputText.split('\n');
-  let currentCategory = null;
-  let expectedQuestionNumber = 1;
-  let errors = [];
-  let correctAnswersFound = false; // Track if a correct answer is found *for the current question*
-  let currentQuestionType = null;
-  let choiceFound = false; // Track if any choice is found *for the current question*
-  let isInsideQuestion = false; // Track if we are between Question Number and Question Type
-  let currentQuestionRef = null; // Holds the string of the current question number (e.g., "1", "S1 5")
+  const lines = inputText.split('\n');
+  let currentCategory = null;
+  let expectedQuestionNumber = 1;
+  let errors = [];
+  let correctAnswersFound = false; // Track if a correct answer is found *for the current question block*
+  let currentQuestionType = null; // Holds the type of the block *ending* at the current line (when Question Type is read)
+  let choiceFound = false; // Track if any choice is found *for the current question block*
+  let isInsideQuestion = false; // Track if we are between Question Number and Question Type
+  let currentQuestionRef = null; // Holds the string of the current question number (e.g., "1", "S1 5")
+  let firstLineOfCurrentQuestionBlock = -1; // Keep track of the start line for block errors
 
-  // Helper to format error messages
-  function formatError(message, lineNumber, questionRef) {
-      const prefix = questionRef ? `Near Question Number ${questionRef}` : `Near Line ${lineNumber}`;
-      return `${prefix}: ${message}`;
-  }
+  // Helper to format error messages
+  function formatError(message, lineNumber, questionRef) {
+      // Use the questionRef if available, otherwise the specific line number
+      const prefix = questionRef ? `Near Question Number ${questionRef}` : `Near Line ${lineNumber}`;
+      return `${prefix}: ${message}`;
+  }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim(); // Use trimmed line for checks, but original line index for errors
-    const lineNumber = i + 1; // Store line number for potential fallback in errors
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim(); // Use trimmed line for checks
+    const originalLine = lines[i]; // Use original line for content checks where trimming might matter (e.g. space before marker)
+    const lineNumber = i + 1; // Store line number for potential fallback in errors
 
-    if (line === "") continue; // Skip empty lines
+    if (line === "") continue; // Skip empty lines
 
-    if (line.startsWith("Category:")) {
-      currentCategory = line.substring("Category:".length).trim();
-      if (!currentCategory) {
-        errors.push(formatError(`Category cannot be empty.`, lineNumber, currentQuestionRef));
-      }
-      // Optional line break checks...
-      isInsideQuestion = false; // Reset state
-      correctAnswersFound = false;
-      choiceFound = false;
-      currentQuestionType = null;
-      // Do NOT reset currentQuestionRef here, keep it until the next Question Number
+    if (line.startsWith("Category:")) {
+      currentCategory = line.substring("Category:".length).trim();
+      if (!currentCategory) {
+        errors.push(formatError(`Category cannot be empty.`, lineNumber, currentQuestionRef));
+      }
+      // Reset state for the new category - effectively ends any ongoing question block validation
+      if (isInsideQuestion) {
+          // This means a question block was started but not finished before a new Category
+          errors.push(formatError(`Found 'Category:' before previous question block was finished (Missing 'Question Type:'). Started near line ${firstLineOfCurrentQuestionBlock}.`, lineNumber, currentQuestionRef));
+          // Add potential errors for the unterminated block based on flags collected so far for this block
+          if (choiceFound && !correctAnswersFound) {
+              errors.push(formatError(`Unterminated question block has choices but no correct answer marker.`, lineNumber, currentQuestionRef));
+          } else if (choiceFound && correctAnswersFound) {
+              errors.push(formatError(`Unterminated question block has choices and a correct answer marker.`, lineNumber, currentQuestionRef));
+          } else if (!choiceFound) {
+              errors.push(formatError(`Unterminated question block is missing choices.`, lineNumber, currentQuestionRef));
+          }
+      }
+      isInsideQuestion = false; // Reset state
+      correctAnswersFound = false;
+      choiceFound = false;
+      currentQuestionType = null; // Reset type as we are starting fresh
+      currentQuestionRef = null; // Reset question ref as we are starting fresh
+      expectedQuestionNumber = 1; // Reset numbering for the new category
+      firstLineOfCurrentQuestionBlock = -1;
+      // No line break check needed *before* Category as it can be the first line or after a blank line
+      // Optional: check for blank line *after* Category
 
-    } else if (line.startsWith("Question Number:")) {
-      const questionNumberPart = line.substring("Question Number:".length).trim();
-      currentQuestionRef = questionNumberPart; // <-- Update the reference
-      const match = questionNumberPart.match(/^(S\d+ )?(\d+)$/);
+    } else if (line.startsWith("Question Number:")) {
+      // Check if the previous block was terminated
+      if (isInsideQuestion) {
+          // This means a question block was started but not finished before a new Question Number
+          errors.push(formatError(`Found 'Question Number:' before previous question block was finished (Missing 'Question Type:'). Started near line ${firstLineOfCurrentQuestionBlock}.`, lineNumber, currentQuestionRef));
+          // Add potential errors for the unterminated block based on flags collected so far for this block
+          if (choiceFound && !correctAnswersFound) {
+              errors.push(formatError(`Unterminated question block has choices but no correct answer marker.`, lineNumber, currentQuestionRef));
+          } else if (choiceFound && correctAnswersFound) {
+              errors.push(formatError(`Unterminated question block has choices and a correct answer marker.`, lineNumber, currentQuestionRef));
+          } else if (!choiceFound) {
+              errors.push(formatError(`Unterminated question block is missing choices.`, lineNumber, currentQuestionRef));
+          }
+      }
 
-      if (match) {
-        const actualNumber = parseInt(match[2], 10);
-        if (actualNumber !== expectedQuestionNumber) {
-          errors.push(formatError(`Incorrect question number. Expected ${expectedQuestionNumber}, got ${actualNumber}.`, lineNumber, currentQuestionRef));
-        }
-      } else {
-         errors.push(formatError(`Invalid format for Question Number. Expected 'Question Number: [S# ]#'.`, lineNumber, currentQuestionRef));
-      }
+      const questionNumberPart = line.substring("Question Number:".length).trim();
+      currentQuestionRef = questionNumberPart; // <-- Update the reference for the *new* block
+      firstLineOfCurrentQuestionBlock = lineNumber; // Mark the start line of the new block
+      const match = questionNumberPart.match(/^(S\d+ )?(\d+)$/);
 
-      // Check line break context
-      let prevNonEmptyLine = "";
-      if (i > 0) prevNonEmptyLine = lines[i-1].trim();
-      if (prevNonEmptyLine !== "" ) {
-          errors.push(formatError(`Question Number should have a blank line above it.`, lineNumber, currentQuestionRef));
-      }
-      let lineBeforePrev = "";
-      if (i > 1) lineBeforePrev = lines[i-2].trim();
-      if (prevNonEmptyLine === "" && lineBeforePrev !== "" && !lineBeforePrev.startsWith("Category:") && !lineBeforePrev.startsWith("Question Type:")) {
-          errors.push(formatError(`The line before the blank line above Question Number must be a Category or Question Type.`, lineNumber, currentQuestionRef));
-      }
+      if (match) {
+        const actualNumber = parseInt(match[2], 10);
+        if (actualNumber !== expectedQuestionNumber) {
+          errors.push(formatError(`Incorrect question number. Expected ${expectedQuestionNumber}, got ${actualNumber}.`, lineNumber, currentQuestionRef));
+        }
+      } else {
+         errors.push(formatError(`Invalid format for Question Number. Expected 'Question Number: [S# ]#'.`, lineNumber, currentQuestionRef));
+      }
 
-      isInsideQuestion = true;
-      correctAnswersFound = false;
-      choiceFound = false;
-
-    } else if (line.startsWith("Question Text:")) {
-       if (!isInsideQuestion) {
-           errors.push(formatError(`Question Text found outside of a Question Number block.`, lineNumber, currentQuestionRef));
-       }
-      const text = line.substring("Question Text:".length).trim();
-       if (!text) {
-           errors.push(formatError(`Question Text cannot be empty.`, lineNumber, currentQuestionRef));
-       }
-      // Optional internal line break checks...
-
-    } else if (line.startsWith("Choice ")) {
-       if (!isInsideQuestion) {
-           errors.push(formatError(`Choice found outside of a Question Number block.`, lineNumber, currentQuestionRef));
-           continue;
-       }
-      const parts = line.split(":");
-      if (!/^Choice \d+:/.test(line.trim())) {
-           errors.push(formatError(`Incorrect choice format start. Should be 'Choice #: ...'.`, lineNumber, currentQuestionRef));
-      } else if (parts.length < 2 || parts[1].trim() === "") {
-           errors.push(formatError(`Choice value cannot be empty after the colon.`, lineNumber, currentQuestionRef));
-      }
-
-      const correctAnswerMarker = "(Correct Answer)";
-      if (line.includes(correctAnswerMarker)) {
-        if (line.indexOf(correctAnswerMarker) !== line.lastIndexOf(correctAnswerMarker)) {
-          errors.push(formatError(`Choice line contains multiple "${correctAnswerMarker}" indicators.`, lineNumber, currentQuestionRef));
-        } else {
-          const expectedEnding = " " + correctAnswerMarker;
-          if (line.endsWith(expectedEnding)) {
-            const charBeforeSpaceIndex = line.length - expectedEnding.length - 1;
-            if (charBeforeSpaceIndex < 0 || line.charAt(charBeforeSpaceIndex) === ' ') {
-              errors.push(formatError(`Incorrect spacing before "${correctAnswerMarker}". Choice text itself should not end in a space.`, lineNumber, currentQuestionRef));
-            } else {
-              correctAnswersFound = true;
-            }
-          } else if (line.endsWith(correctAnswerMarker)) {
-            errors.push(formatError(`Missing space before "${correctAnswerMarker}". Should be "...text ${correctAnswerMarker}".`, lineNumber, currentQuestionRef));
-          } else {
-            errors.push(formatError(`"${correctAnswerMarker}" must appear exactly at the end of the line, preceded by a single space.`, lineNumber, currentQuestionRef));
-          }
-        }
-      } // end if includes marker
-      choiceFound = true;
-
-    } else if (line.startsWith("Question Type:")) {
-       if (!isInsideQuestion && currentQuestionRef) { // Only flag if we were expecting to be inside *a* question
-           errors.push(formatError(`Question Type found, but might be misplaced (not immediately following its question parts).`, lineNumber, currentQuestionRef));
-       } else if (!isInsideQuestion && !currentQuestionRef) {
-            errors.push(formatError(`Question Type found outside of any Question block.`, lineNumber, null));
-       }
-
-      currentQuestionType = line.substring("Question Type:".length).trim();
-      if (!currentQuestionType) {
-          errors.push(formatError(`Question Type cannot be empty.`, lineNumber, currentQuestionRef));
-      }
-
-      // --- Checks for the *completed* question block ending *before* this line ---
-      // These errors logically belong to the question identified by currentQuestionRef
-       if (currentQuestionType === "DESC" && choiceFound) {
-           errors.push(formatError(`Previous question block (Type DESC) contained choices.`, lineNumber, currentQuestionRef));
-       }
-       if (currentQuestionType && currentQuestionType !== "DESC" && choiceFound && !correctAnswersFound) {
-           errors.push(formatError(`Previous question block (Type ${currentQuestionType}) has choices, but none are marked correctly with "(Correct Answer)".`, lineNumber, currentQuestionRef));
-       }
-        if (currentQuestionType && currentQuestionType !== "DESC" && !choiceFound) {
-           errors.push(formatError(`Previous question block (Type ${currentQuestionType}) is missing Choices.`, lineNumber, currentQuestionRef));
-       }
-      // --- End checks for completed question ---
+      // Check line break context *before* the Question Number line
+      let prevNonEmptyLine = "";
+      if (i > 0) prevNonEmptyLine = lines[i-1].trim();
+      if (prevNonEmptyLine !== "" ) {
+          errors.push(formatError(`Question Number should have a blank line above it.`, lineNumber, currentQuestionRef));
+      }
+      let lineBeforePrev = "";
+      if (i > 1) lineBeforePrev = lines[i-2].trim();
+      // The line before the blank line should be a Category or the line before the blank line after Question Type
+      if (prevNonEmptyLine === "" && lineBeforePrev !== "" && !lineBeforePrev.startsWith("Category:") && !lineBeforePrev.startsWith("Question Type:")) {
+          errors.push(formatError(`The line before the blank line above Question Number must be a Category or Question Type.`, lineNumber, currentQuestionRef));
+      }
 
 
-      // Check line break context for Question Type line itself
-      let nextNonEmptyLine = "";
-       if(i < lines.length - 1) nextNonEmptyLine = lines[i+1].trim();
-       if (nextNonEmptyLine !== "") {
-           errors.push(formatError(`Question Type must have a blank line below it.`, lineNumber, currentQuestionRef));
-       }
-       let lineAfterNext = "";
-       if(i < lines.length - 2) lineAfterNext = lines[i+2].trim();
-       if (nextNonEmptyLine === "" && lineAfterNext !== "" && !lineAfterNext.startsWith("Category:") && !lineAfterNext.startsWith("Question Number:")) {
-           errors.push(formatError(`The line after the blank line below Question Type must be a Category or Question Number.`, lineNumber, currentQuestionRef));
-       }
+      isInsideQuestion = true; // Now we are inside a question block
+      correctAnswersFound = false; // Reset flags for the *new* block
+      choiceFound = false;
+      currentQuestionType = null; // Reset type until it's specified later in the block
+
+    } else if (line.startsWith("Question Text:")) {
+       if (!isInsideQuestion) {
+           errors.push(formatError(`Question Text found outside of a Question Number block.`, lineNumber, currentQuestionRef || null));
+       }
+      const text = line.substring("Question Text:".length).trim();
+       if (!text) {
+           errors.push(formatError(`Question Text cannot be empty.`, lineNumber, currentQuestionRef || null));
+       }
+      // Optional internal line break checks within Question Text could be added here
+
+    } else if (line.startsWith("Choice ")) {
+       if (!isInsideQuestion) {
+           errors.push(formatError(`Choice found outside of a Question Number block.`, lineNumber, currentQuestionRef || null));
+           continue; // Skip further checks on this line if not in a block
+       }
+      // Check choice numbering format (e.g., "Choice 1:", "Choice 2:")
+      const choiceMatch = line.match(/^Choice (\d+):/);
+      if (!choiceMatch) {
+          errors.push(formatError(`Incorrect choice format start. Should be 'Choice #: ...'.`, lineNumber, currentQuestionRef));
+      } else {
+          // Check choice value is not empty after colon
+          const choiceValue = originalLine.substring(originalLine.indexOf(':') + 1).trim(); // Use original line to preserve spacing intent
+          if (choiceValue === "" && !originalLine.includes("(Correct Answer)")) { // Allow empty if only marker is present (though format check handles this)
+              errors.push(formatError(`Choice value cannot be empty after the colon.`, lineNumber, currentQuestionRef));
+          }
+      }
+
+      const correctAnswerMarker = "(Correct Answer)";
+      // Check the original line content for the marker placement
+      if (originalLine.includes(correctAnswerMarker)) {
+        if (originalLine.indexOf(correctAnswerMarker) !== originalLine.lastIndexOf(correctAnswerMarker)) {
+          errors.push(formatError(`Choice line contains multiple "${correctAnswerMarker}" indicators.`, lineNumber, currentQuestionRef));
+        } else {
+          const expectedEnding = " " + correctAnswerMarker;
+          // Check if the original line ends exactly with space + marker
+          if (originalLine.endsWith(expectedEnding)) {
+            correctAnswersFound = true; // Marker found in this question block
+          } else {
+            errors.push(formatError(`"${correctAnswerMarker}" must appear exactly at the end of the line, preceded by a single space.`, lineNumber, currentQuestionRef));
+          }
+        }
+      } // end if includes marker
+      choiceFound = true; // At least one choice line found in this question block
+
+    } else if (line.startsWith("Question Type:")) {
+       // Store the previous block's context before resetting state
+       const prevBlockQuestionRef = currentQuestionRef;
+       const prevBlockStartLine = firstLineOfCurrentQuestionBlock;
+       const prevChoiceFound = choiceFound;
+       const prevCorrectAnswersFound = correctAnswersFound;
+
+       if (!isInsideQuestion && prevBlockQuestionRef) {
+           // This case implies a Question Type line appeared, but isInsideQuestion was false,
+           // suggesting the block was already terminated or not started properly.
+           errors.push(formatError(`Question Type found, but not immediately following its question parts (Question Number might be missing or misplaced).`, lineNumber, prevBlockQuestionRef));
+       } else if (!isInsideQuestion && !prevBlockQuestionRef) {
+            errors.push(formatError(`Question Type found outside of any Question block (No preceding Question Number found).`, lineNumber, null));
+       }
+
+      currentQuestionType = line.substring("Question Type:".length).trim(); // Set type for the block *ending* here
+      if (!currentQuestionType) {
+          errors.push(formatError(`Question Type cannot be empty.`, lineNumber, prevBlockQuestionRef));
+      } else if (isInsideQuestion) { // Only validate the block structure if we were properly inside a block
+          // Validate the just completed question block (from prevBlockStartLine to lineNumber - 1)
+          // These checks use the state flags (prevChoiceFound, prevCorrectAnswersFound) collected *before* this line
+
+          // Rule: DESC/ESSAY types must *not* have choices
+          if ((currentQuestionType === "DESC" || currentQuestionType === "ESSAY") && prevChoiceFound) {
+              errors.push(formatError(`Question block (Type ${currentQuestionType}) ending at line ${lineNumber} contained choices. Started near line ${prevBlockStartLine}.`, lineNumber, prevBlockQuestionRef));
+          }
+
+          // Rule: Types requiring choices (like MC, MCFeedback) must *have* choices
+          // Note: This check assumes *any* type other than DESC/ESSAY requires choices. Adjust if needed.
+          if (currentQuestionType !== "DESC" && currentQuestionType !== "ESSAY" && !prevChoiceFound) {
+              errors.push(formatError(`Question block (Type ${currentQuestionType}) ending at line ${lineNumber} is missing Choices. Started near line ${prevBlockStartLine}.`, lineNumber, prevBlockQuestionRef));
+          }
+
+            // Rule: MC type must have choices AND a correct answer marked
+             if (currentQuestionType === "MC" && prevChoiceFound && !prevCorrectAnswersFound) {
+                  errors.push(formatError(`Question block (Type ${currentQuestionType}) ending at line ${lineNumber} has choices, but none are marked correctly with "(Correct Answer)". Started near line ${prevBlockStartLine}.`, lineNumber, prevBlockQuestionRef));
+             }
+             // Assuming only one correct answer is allowed for MC. The current correctAnswersFound flag only checks for presence.
+             // A more robust check would count markers. For now, we flag missing for MC, and presence for MCFeedback.
+
+            // Rule: MCFeedback type must have choices AND must *not* have any correct answer marked
+             if (currentQuestionType === "MCFeedback" && prevChoiceFound && prevCorrectAnswersFound) {
+                  errors.push(formatError(`Question block (Type ${currentQuestionType}) ending at line ${lineNumber} should not have a correct answer marker "(Correct Answer)". Started near line ${prevBlockStartLine}.`, lineNumber, prevBlockQuestionRef));
+             }
 
 
-      // Check MC numbering requirement using the stored currentQuestionRef
-      if (currentQuestionRef) { // Check if we have a question reference
-           const match = currentQuestionRef.match(/^(S\d+ )?(\d+)$/);
-           if (match) {
-               const numStr = match[2];
-               const numVal = parseInt(numStr, 10);
-               if (currentQuestionType === "MC" && numVal < 10 && numStr.length < 2) {
-                   errors.push(formatError(`Question Type MC requires single-digit question numbers (like ${numVal}) to be formatted with a leading zero (e.g., 0${numVal}). Found '${numStr}'.`, lineNumber, currentQuestionRef));
-               }
-           }
-      } else if (currentQuestionType === "MC") {
-            // This case should ideally not happen if structure is valid, but good to catch
-            errors.push(formatError(`Question Type MC defined, but cannot verify numbering format as no preceding Question Number was found.`, lineNumber, null));
-      }
+      }
+
+      // Check line break context *after* the Question Type line
+      let nextNonEmptyLine = "";
+       if(i < lines.length - 1) nextNonEmptyLine = lines[i+1].trim();
+       if (nextNonEmptyLine !== "") {
+           errors.push(formatError(`Question Type must have a blank line below it.`, lineNumber, prevBlockQuestionRef));
+       }
+       let lineAfterNext = "";
+       if(i < lines.length - 2) lineAfterNext = lines[i+2].trim();
+       // The line after the blank line should be a Category or a Question Number
+       if (nextNonEmptyLine === "" && lineAfterNext !== "" && !lineAfterNext.startsWith("Category:") && !lineAfterNext.startsWith("Question Number:")) {
+           errors.push(formatError(`The line after the blank line below Question Type must be a Category or Question Number.`, lineNumber, prevBlockQuestionRef));
+       }
+
+      // Check MC/MCFeedback numbering requirement using the stored prevBlockQuestionRef
+      if (prevBlockQuestionRef) { // Check if we had a question reference for this block
+           const match = prevBlockQuestionRef.match(/^(S\d+ )?(\d+)$/);
+           if (match) {
+               const numStr = match[2];
+               const numVal = parseInt(numStr, 10);
+               if ((currentQuestionType === "MC" || currentQuestionType === "MCFeedback") && numVal < 10 && numStr.length < 2) {
+                   errors.push(formatError(`Question Number format error: Type ${currentQuestionType} requires single-digit numbers (${numVal}) to be zero-padded ('0${numVal}'). Found '${numStr}'.`, lineNumber, prevBlockQuestionRef));
+               }
+           } // else invalid format already handled when reading Q#
+      } // The case where Question Type is found without Q# is already handled above
+
+      if (isInsideQuestion) {
+          expectedQuestionNumber++; // Increment for the *next* expected question
+      }
+
+      // Reset flags and references for the next potential block
+      isInsideQuestion = false;
+      correctAnswersFound = false;
+      choiceFound = false;
+      currentQuestionType = null; // Reset type explicitly after processing the block
+      currentQuestionRef = null; // Reset QRef as this block is done
+      firstLineOfCurrentQuestionBlock = -1; // Reset start line
 
 
-      if (isInsideQuestion) {
-          expectedQuestionNumber++;
-      }
+    } else {
+      // Unrecognized line format
+      // Flag if we are inside a question block (isInsideQuestion) or have encountered a Category or previous Question Number
+      if (isInsideQuestion || currentCategory !== null || currentQuestionRef !== null || expectedQuestionNumber > 1) {
+        errors.push(formatError(`Unrecognized line format: "${line}"`, lineNumber, currentQuestionRef || null));
+      }
+    }
+  } // end for loop
 
-      isInsideQuestion = false;
-      correctAnswersFound = false;
-      choiceFound = false;
-      // currentQuestionType is set, currentQuestionRef remains until next Q#
+  // --- Final Check: After loop ---
+  // Check if the last block was terminated
+  if (isInsideQuestion) { // isInsideQuestion will be true if the last Question Number was read but no Question Type
+       // Use the last known question ref and start line for these errors
+       const lastLineNum = lines.length;
+       errors.push(formatError(`Input ended unexpectedly inside a question block (started near line ${firstLineOfCurrentQuestionBlock}). Missing 'Question Type:'?`, lastLineNum, currentQuestionRef));
 
-    } else {
-      // Unrecognized line format
-      errors.push(formatError(`Unrecognized line format: "${line}"`, lineNumber, currentQuestionRef));
-    }
-  } // end for loop
+       // Check state *within* this incomplete block based on flags collected for it
+        // These final checks are more generic as the type wasn't found.
+       if (choiceFound && !correctAnswersFound) {
+           errors.push(formatError(`Last question block (unterminated) has choices but no correct answer marker. (Expected Type MC?)`, lastLineNum, currentQuestionRef));
+       } else if (choiceFound && correctAnswersFound) {
+            errors.push(formatError(`Last question block (unterminated) has choices and a correct answer marker. (Expected Type MCFeedback should not have a marker)`, lastLineNum, currentQuestionRef));
+       } else if (!choiceFound) {
+            errors.push(formatError(`Last question block (unterminated) is missing choices. (Expected Type MC, MCFeedback?)`, lastLineNum, currentQuestionRef));
+       }
+  }
 
-  // --- Final Check: After loop ---
-  if (isInsideQuestion) {
-       // Use the last known question ref for these errors
-       const lastLineNum = lines.length;
-       errors.push(formatError(`Input ended unexpectedly inside a question block. Missing 'Question Type:'?`, lastLineNum, currentQuestionRef));
-       if (currentQuestionType === "DESC" && choiceFound) { // Check based on last known type if available
-           errors.push(formatError(`Last question block (unterminated, Type DESC) contained choices.`, lastLineNum, currentQuestionRef));
-       }
-       if (currentQuestionType && currentQuestionType !== "DESC" && choiceFound && !correctAnswersFound) {
-           errors.push(formatError(`Last question block (unterminated, Type ${currentQuestionType}) has choices, but none are marked correctly with "(Correct Answer)".`, lastLineNum, currentQuestionRef));
-       }
-       if (currentQuestionType && currentQuestionType !== "DESC" && !choiceFound) {
-           errors.push(formatError(`Last question block (unterminated, Type ${currentQuestionType}) is missing Choices.`, lastLineNum, currentQuestionRef));
-       }
-       // Check based on flags if type wasn't explicitly set for the last block
-        else if (!currentQuestionType && choiceFound && !correctAnswersFound) {
-             errors.push(formatError(`Last question block (unterminated, type unknown but has choices) has no choice marked correctly with "(Correct Answer)".`, lastLineNum, currentQuestionRef));
-        }
-         else if (!currentQuestionType && !choiceFound){
-             // This might be okay if it was intended to be DESC, but ambiguous without type. Flagging potential issue.
-              errors.push(formatError(`Last question block (unterminated, type unknown) is missing Choices. Expected type DESC?`, lastLineNum, currentQuestionRef));
-         }
-  }
-
-  if (errors.length > 0) {
-    const uniqueErrors = [...new Set(errors)];
-    return { valid: false, errors: uniqueErrors };
-  } else {
-    return { valid: true, errors: [] };
-  }
+  // Deduplicate errors before returning
+  if (errors.length > 0) {
+    // Use a Set to get unique error strings
+    const uniqueErrors = [...new Set(errors)];
+    return { valid: false, errors: uniqueErrors };
+  } else {
+    return { valid: true, errors: [] };
+  }
 }
 </script>
 
