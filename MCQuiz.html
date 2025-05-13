@@ -16,6 +16,15 @@
 <body>
     <h1>Quiz Converter</h1>
     <textarea id="input" placeholder="Paste your questions here."></textarea>
+    <label>
+    <input type="checkbox" id="shuffleMC">
+    Shuffle choices for Multiple Choice
+    </label>
+    <br>
+    <label>
+    <input type="checkbox" id="shuffleDDWTOS">
+    Shuffle choices for Drag and Drop Text
+    </label>
     <button id="convert">Convert</button>
     <button id="save">Save as XML</button>
     <textarea id="output" readonly></textarea>
@@ -23,6 +32,9 @@
     <script>
 function processQuestion(questionType, questionNumber, questionText, choices) {
     let questionXml = "";
+    const shuffleMC = document.getElementById("shuffleMC").checked;
+    const shuffleDDWTOS = document.getElementById("shuffleDDWTOS").checked;
+
     if (!questionType || !questionNumber) return ""; // Don't process incomplete entries
 
     // Apply common replacements first
@@ -31,8 +43,8 @@ function processQuestion(questionType, questionNumber, questionText, choices) {
 
     if (questionType.toUpperCase() === "DESC") { // Case-insensitive check for question type
         questionXml = `    <question type="description">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>0</defaultgrade>\n        <penalty>0</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n    </question>\n`;
-    } else if (questionType.toUpperCase() === "MC" && choices.length > 0) { // Case-insensitive check
-        questionXml = `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0.3333333</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <single>true</single>\n        <shuffleanswers>true</shuffleanswers>\n        <answernumbering>abc</answernumbering>\n        <correctfeedback format="html">\n            <text>Your answer is correct.</text>\n        </correctfeedback>\n        <partiallycorrectfeedback format="html">\n            <text>Your answer is partially correct.</text>\n        </partiallycorrectfeedback>\n        <incorrectfeedback format="html">\n            <text>Your answer is incorrect.</text>\n        </incorrectfeedback>\n        <shownumcorrect/>\n`;
+    } else if (questionType.toUpperCase() === "MC" || questionType.toUpperCase() === "MCFEEDBACK"  && choices.length > 0) { // Case-insensitive check
+        questionXml = `    <question type="multichoice">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0.3333333</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <single>true</single>\n        <shuffleanswers>${shuffleMC ? 1 : 0}</shuffleanswers>\n        <answernumbering>abc</answernumbering>\n        <correctfeedback format="html">\n            <text>Your answer is correct.</text>\n        </correctfeedback>\n        <partiallycorrectfeedback format="html">\n            <text>Your answer is partially correct.</text>\n        </partiallycorrectfeedback>\n        <incorrectfeedback format="html">\n            <text>Your answer is incorrect.</text>\n        </incorrectfeedback>\n        <shownumcorrect/>\n`;
         choices.forEach(choice => {
             // Case-insensitive check for "(Correct Answer)"
             let fraction = choice.toLowerCase().includes("(correct answer)") ? "100" : "0";
@@ -42,7 +54,7 @@ function processQuestion(questionType, questionNumber, questionText, choices) {
         });
         questionXml += `    </question>\n`;
     } else if (questionType.toUpperCase() === "DDWTOS" && choices.length > 0) { // Case-insensitive check
-         questionXml = `    <question type="ddwtos">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0.3333333</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <shuffleanswers>1</shuffleanswers>\n        <correctfeedback format="html">\n            <text><![CDATA[<p>Your answer is correct.</p>]]></text>\n        </correctfeedback>\n        <partiallycorrectfeedback format="html">\n            <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>\n        </partiallycorrectfeedback>\n        <incorrectfeedback format="html">\n            <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>\n        </incorrectfeedback>\n        <shownumcorrect/>\n`;
+         questionXml = `    <question type="ddwtos">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0.3333333</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <shuffleanswers>${shuffleDDWTOS ? 1 : 0}</shuffleanswers>\n        <correctfeedback format="html">\n            <text><![CDATA[<p>Your answer is correct.</p>]]></text>\n        </correctfeedback>\n        <partiallycorrectfeedback format="html">\n            <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>\n        </partiallycorrectfeedback>\n        <incorrectfeedback format="html">\n            <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>\n        </incorrectfeedback>\n        <shownumcorrect/>\n`;
          choices.forEach((choice, index) => {
              choice = choice.trim();
              // Check if choice indicates the correct drop zone, e.g., "Choice 1 (Correct for [[1]]): text"
@@ -57,6 +69,8 @@ function processQuestion(questionType, questionNumber, questionText, choices) {
          // Defining the correct drop zones usually happens within the Moodle interface
          // or requires a more complex XML structure specifying drop zones.
          questionXml += `    </question>\n`;
+    } else if (questionType.toUpperCase() === "ESSAY") { // Case-insensitive check for Essay
+        questionXml = `    <question type="essay">\n        <name>\n            <text>${questionNumber}</text>\n        </name>\n        <questiontext format="html">\n            <text><![CDATA[${questionText}]]></text>\n        </questiontext>\n        <generalfeedback format="html">\n            <text></text>\n        </generalfeedback>\n        <defaultgrade>1</defaultgrade>\n        <penalty>0</penalty>\n        <hidden>0</hidden>\n        <idnumber></idnumber>\n        <responseformat>plain</responseformat>\n        <responserequired>0</responserequired>\n        <responsefieldlines>5</responsefieldlines>\n        <minwordlimit></minwordlimit>\n        <maxwordlimit></maxwordlimit>\n        <attachments>0</attachments>\n        <attachmentsrequired>0</attachmentsrequired>\n        <maxbytes>0</maxbytes>\n        <filetypeslist></filetypeslist>\n        <graderinfo format="html">\n            <text></text>\n        </graderinfo>\n        <responsetemplate format="html">\n            <text></text>\n        </responsetemplate>\n    </question>\n`;
     }
     return questionXml;
 }
@@ -93,29 +107,28 @@ document.getElementById("convert").addEventListener("click", () => {
         if (lowerLine.startsWith("category:")) {
             category = line.substring("category:".length).trim(); // Extract text after the label
              if (category) { // Add category marker only if category text exists
-                const fullCategoryPath = parentCategory ? `$module$/top/Default for ${parentCategory}/${category}` : `$module$/top/${category}`;
-                xml += `\n    \n`;
-                xml += `    <question type="category">\n        <category>\n            <text>${fullCategoryPath}</text>\n        </category>\n    </question>\n`;
-            }
-       } else if (lowerLine.startsWith("question number:")) {
-            questionNumber = line.substring("question number:".length).trim(); // Extract text after the label
-            collectingQuestionText = false;
+                 const fullCategoryPath = parentCategory ? `$module$/top/Default for ${parentCategory}/${category}` : `$module$/top/${category}`;
+                 xml += `\n    \n`;
+                 xml += `    <question type="category">\n        <category>\n            <text>${fullCategoryPath}</text>\n        </category>\n    </question>\n`;
+             }
+        } else if (lowerLine.startsWith("question number:")) {
+             questionNumber = line.substring("question number:".length).trim(); // Extract text after the label
+             collectingQuestionText = false;
         } else if (lowerLine.startsWith("question text:")) {
-            // Start collecting question text, initialize with the first line
-            questionText = `<p>` + line.substring("question text:".length).trim() + `</p>`; // Extract text after the label
-            collectingQuestionText = true;
+             // Start collecting question text, initialize with the first line
+             questionText = `<p>` + line.substring("question text:".length).trim() + `</p>`;
+             collectingQuestionText = true;
         } else if (collectingQuestionText && !lowerLine.startsWith("question type:") && !lowerLine.startsWith("choice") && line !== "") {
              // Append non-empty lines to the question text
-             questionText += `\n<p>${line}</p>`; // Add newline for readability in raw HTML
+             questionText += `\n<p>${line}</p>`;
         } else if (lowerLine.startsWith("question type:")) {
-            questionType = line.substring("question type:".length).trim(); // Extract text after the label
-            collectingQuestionText = false; // Stop collecting text
+             questionType = line.substring("question type:".length).trim(); // Extract text after the label
+             collectingQuestionText = false; // Stop collecting text
         } else if (lowerLine.startsWith("choice")) {
              collectingQuestionText = false; // Stop collecting text
              // Add choice text, keeping the marker (like "(Correct Answer)") for later processing
-            choices.push(line.split(": ").slice(1).join(":")); // Keep raw choice text initially
-        }
-        // Ignore empty lines and separators like "---"
+             choices.push(line.split(": ").slice(1).join(":")); // Keep raw choice text initially
+         }
     });
 
      // Process the very last question in the input
