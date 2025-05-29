@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kippap Chatbot</title>
+    <link rel="icon" type="image/x-icon" href="kippap.png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+        :root {
+            --body-bg: #121212; /* Very dark grey, almost black */
+            --container-bg: #1E1E1E; /* Dark grey for chat container */
+            --header-bg: #181818; /* Slightly different dark for header */
+            --header-text-color: #FFA500; /* Orange for header title */
+            --header-border-color: #FF8C00; /* Orange accent border for header */
+
+            --chatbox-bg: #1E1E1E; 
+            
+            --text-color: #EAEAEA; /* Off-white for general text */
+            --text-color-muted: #A0A0A0; /* Muted grey for secondary text */
+
+            --message-user-bg: #E67E22; /* A nice shade of orange for user messages */
+            --message-user-text: #FFFFFF; /* White text on orange */
+            --message-bot-bg: #343A40;   /* Dark grey for bot messages, good contrast */
+            --message-bot-text: #F1F1F1;
+
+            --input-area-bg: #181818; 
+            --input-area-border: #2D2D2D; 
+            --input-bg: #2C2C2C; /* Dark grey for input field */
+            --input-border: #444; /* Subtle border for input */
+            --input-border-focus: #FFA500; /* Orange border on focus */
+            --input-text: #EAEAEA;
+            --input-placeholder-color: #777;
+
+            --button-bg: #FF8C00; /* Dark Orange for buttons */
+            --button-text: #FFFFFF;
+            --button-hover-bg: #E67E22; /* Slightly darker/different orange on hover */
+
+            --upload-button-bg: #4A4A4A;
+            --upload-button-hover-bg: #5A5A5A;
+            --upload-button-text: #FFA500;
+
+
+            --typing-indicator-color: #FFA500; /* Orange for typing indicator */
+            --loader-track-color: #444;
+            --loader-spinner-color: #FF8C00; 
+
+            --link-color: #FFAB40; /* A slightly lighter orange for links for better visibility */
+            --box-shadow-light: rgba(255, 165, 0, 0.1);
+            --box-shadow-medium: rgba(255, 165, 0, 0.15);
+
+            --image-preview-bg: #252525;
+            --image-preview-border: #383838;
+            --remove-button-bg: #D9534F; /* A soft red */
+            --remove-button-text: white;
+            --remove-button-border-color: var(--body-bg); /* Use body-bg for contrast */
+
+            --font-family-main: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            --border-radius-soft: 8px;
+            --border-radius-messages: 18px;
+            --border-radius-buttons: 25px;
+
+            --scrollbar-thumb-bg: #FFA500;
+            --scrollbar-track-bg: #2C2C2C;
+        }
+
+        body {
+            font-family: var(--font-family-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--body-bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 10px; 
+            box-sizing: border-box;
+        }
+
+        #chat-container {
+            width: 100%;
+            max-width: 550px; 
+            background-color: var(--container-bg);
+            border-radius: var(--border-radius-soft);
+            box-shadow: 0 5px 25px var(--box-shadow-medium);
+            display: flex;
+            flex-direction: column;
+            height: 90vh; 
+            max-height: 700px; 
+            overflow: hidden;
+        }
+
+        #header-area {
+            background-color: var(--header-bg);
+            color: var(--header-text-color);
+            padding: 12px 20px;
+            border-bottom: 2px solid var(--header-border-color);
+            display: flex;
+            justify-content: space-between; 
+            align-items: center;
+            flex-shrink: 0; 
+        }
+        #header-title {
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+        #logo-container img {
+            height: 40px; 
+            width: auto;
+            display: block;
+        }
+
+        #chatbox {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: var(--chatbox-bg);
+            display: flex;
+            flex-direction: column;
+            gap: 12px; 
+        }
+        /* Custom Scrollbar */
+        #chatbox::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chatbox::-webkit-scrollbar-track {
+            background: var(--scrollbar-track-bg);
+            border-radius: 10px;
+        }
+        #chatbox::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb-bg);
+            border-radius: 10px;
+        }
+        #chatbox::-webkit-scrollbar-thumb:hover {
+            background: var(--button-hover-bg);
+        }
+
+
+        .message {
+            padding: 10px 15px;
+            max-width: 80%; 
+            word-wrap: break-word;
+            line-height: 1.5;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .message p { /* Style for text within a message that might also contain an image or formatted list */
+            margin: 0 0 0.5em 0; /* Add some bottom margin to paragraphs in messages */
+        }
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+        .message ul {
+            margin: 0.5em 0 0 20px; /* Style for lists within messages */
+            padding: 0;
+        }
+        .message li {
+            margin-bottom: 0.25em;
+        }
+
+        .message img { /* Style for images within a message */
+            max-width: 100%;
+            max-height: 250px; 
+            border-radius: var(--border-radius-soft);
+            margin-top: 8px;
+            display: block;
+        }
+         .user-message img:only-child, .bot-message img:only-child { /* If image is the only child, no top margin */
+            margin-top: 0;
+        }
+
+
+        .user-message {
+            background-color: var(--message-user-bg);
+            color: var(--message-user-text);
+            align-self: flex-end;
+            border-radius: var(--border-radius-messages) var(--border-radius-messages) 0 var(--border-radius-messages);
+        }
+        
+
+        .bot-message {
+            background-color: var(--message-bot-bg);
+            color: var(--message-bot-text);
+            align-self: flex-start;
+            border-radius: var(--border-radius-messages) var(--border-radius-messages) var(--border-radius-messages) 0;
+        }
+        
+        #imagePreviewContainer {
+            padding: 10px 15px;
+            background-color: var(--image-preview-bg);
+            border-bottom: 1px solid var(--image-preview-border);
+            display: none; 
+            flex-shrink: 0; 
+            align-items: center;
+        }
+        .image-preview-item {
+            position: relative;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        #imagePreviewContainer img {
+            display: block;
+            max-height: 60px;
+            max-width: 100px;
+            border-radius: var(--border-radius-soft);
+            object-fit: cover;
+            border: 1px solid var(--image-preview-border);
+        }
+        #removeImagePreview {
+            position: absolute;
+            top: -10px;         
+            right: -10px;        
+            background-color: var(--remove-button-bg);
+            color: var(--remove-button-text);
+            border: 2px solid var(--body-bg); 
+            border-radius: 50%;
+            width: 24px;        
+            height: 24px;
+            font-size: 14px;    
+            font-weight: bold;
+            line-height: 20px;  
+            text-align: center;
+            cursor: pointer;
+            padding: 0;
+            z-index: 10;        
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        #removeImagePreview:hover {
+            background-color: #C0392B; /* Darker red on hover */
+            transform: scale(1.1);
+        }
+
+        .typing-indicator {
+            padding: 8px 20px;
+            font-style: italic;
+            color: var(--typing-indicator-color);
+            display: none; 
+            align-items: center; 
+            gap: 8px; 
+            flex-shrink: 0; 
+            background-color: var(--input-area-bg); 
+        }
+        .loader {
+            border: 3px solid var(--loader-track-color);
+            border-top: 3px solid var(--loader-spinner-color);
+            border-radius: 50%;
+            width: 18px; 
+            height: 18px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #input-area {
+            display: flex;
+            padding: 12px 15px;
+            background-color: var(--input-area-bg);
+            border-top: 1px solid var(--input-area-border);
+            align-items: center;
+            gap: 10px; 
+            flex-shrink: 0; 
+        }
+        #userInput {
+            flex-grow: 1;
+            padding: 12px 18px;
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
+            border-radius: var(--border-radius-buttons);
+            outline: none;
+            font-size: 1em;
+            transition: border-color 0.2s;
+        }
+        #userInput::placeholder {
+            color: var(--input-placeholder-color);
+        }
+        #userInput:focus {
+            border-color: var(--input-border-focus);
+        }
+
+        #uploadImage, #sendButton {
+            padding: 10px; 
+            width: 48px; 
+            height: 48px;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            border-radius: 50%; /* Circular buttons */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em; 
+            transition: background-color 0.2s, transform 0.1s;
+            flex-shrink: 0; 
+        }
+        #sendButton {
+            background-color: var(--button-bg);
+        }
+        #sendButton:hover {
+            background-color: var(--button-hover-bg);
+            transform: scale(1.05);
+        }
+        #uploadImage {
+            background-color: var(--upload-button-bg);
+            color: var(--upload-button-text);
+            font-size: 1.6em; /* '+' sign size */
+        }
+        #uploadImage:hover {
+            background-color: var(--upload-button-hover-bg);
+            transform: scale(1.05);
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 600px) {
+            body {
+                padding: 0; /* Full bleed on mobile */
+            }
+            #chat-container {
+                height: 100vh; 
+                max-height: 100vh; 
+                border-radius: 0; 
+                max-width: 100%;
+                box-shadow: none;
+            }
+            #header-area {
+                padding: 10px 15px;
+                border-bottom-width: 1px; 
+            }
+            #header-title {
+                font-size: 1.2em;
+            }
+            #logo-container img {
+                height: 30px;
+            }
+            #chatbox {
+                padding: 15px 10px; 
+            }
+            .message {
+                max-width: 85%;
+                padding: 8px 12px;
+                font-size: 0.95em;
+            }
+            #input-area {
+                padding: 8px 10px; 
+                gap: 8px;
+            }
+            #userInput {
+                padding: 10px 15px;
+                font-size: 0.95em;
+            }
+            #uploadImage, #sendButton {
+                width: 42px;
+                height: 42px;
+                font-size: 1.3em;
+            }
+             #imagePreviewContainer {
+                padding: 8px 10px;
+            }
+            #imagePreviewContainer img {
+                max-height: 50px;
+            }
+             #removeImagePreview {
+                width: 20px;
+                height: 20px;
+                font-size: 12px;
+                line-height: 17px; 
+                top: -7px;
+                right: -7px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="header-area">
+            <span id="header-title">Kippap Chat</span>
+            <div id="logo-container">
+                <img src="kippap.png" alt="Kippap Logo">
+            </div>
+        </div>
+        <div id="chatbox">
+            <div class="message bot-message">Hi there! I'm Kippap, your assistant. Ask me something or send an image.</div>
+        </div>
+        
+        <div id="imagePreviewContainer">
+            </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="loader"></div> Bot is typing...
+        </div>
+        <div id="input-area">
+            <button id="uploadImage" title="Upload Image">+</button>
+            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
+            <input type="text" id="userInput" placeholder="Type your message...">
+            <button id="sendButton" title="Send Message">➢</button>
+        </div>
+    </div>
+
+    <script>
+        const chatbox = document.getElementById('chatbox');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const uploadImageButton = document.getElementById('uploadImage');
+        const imageUploadInput = document.getElementById('imageUploadInput');
+        const apiUrl = 'http://kpopchatbot.atwebpages.com/chat_api.php';
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+
+        let currentImageBase64 = null;
+        let currentImageMimeType = null;
+
+        /**
+         * Finds URLs in a string and replaces them with clickable HTML anchor tags.
+         * @param {string} inputText The text to linkify.
+         * @returns {string} The text with URLs converted to HTML links.
+         */
+        function linkify(inputText) {
+            if (!inputText) return '';
+            let replacedText = inputText;
+
+            const urlPattern = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gim;
+            replacedText = replacedText.replace(urlPattern, (match) => `<a href="${match}" target="_blank" rel="noopener noreferrer" style="color: var(--link-color); text-decoration: underline;">${match}</a>`);
+
+            // URLs starting with "www." (without // before it)
+            const wwwPattern = /(^|[^A-Z0-9\/])(www\.[\S]+(\b|$))/gim; // Ensure 'www' is not part of a path segment
+            replacedText = replacedText.replace(wwwPattern, (match, p1, p2) => `${p1}<a href="http://${p2}" target="_blank" rel="noopener noreferrer" style="color: var(--link-color); text-decoration: underline;">${p2}</a>`);
+            
+            // Email addresses
+            const emailPattern = /([\w.-]+@[\w-]+\.[\w.-]+)/gim;
+            replacedText = replacedText.replace(emailPattern, (match) => `<a href="mailto:${match}" style="color: var(--link-color); text-decoration: underline;">${match}</a>`);
+
+            return replacedText;
+        }
+
+        /**
+         * Formats a string containing a list of packages into an HTML list.
+         * Assumes input like: "Intro text: * **Package1:** Price1 * **Package2:** Price2"
+         * @param {string} inputText The raw text string with package information.
+         * @returns {string} HTML string with a formatted list.
+         */
+        function formatPackageList(inputText) {
+            const firstListItemMarker = inputText.indexOf("* **");
+            let introHtml = "";
+            let listItemsString = "";
+
+            if (firstListItemMarker !== -1) {
+                const introText = inputText.substring(0, firstListItemMarker).trim();
+                if (introText) {
+                    introHtml = `<p>${linkify(introText)}</p>`; // Linkify intro text as well
+                }
+                listItemsString = inputText.substring(firstListItemMarker);
+            } else {
+                return `<p>${linkify(inputText.trim())}</p>`; // Not a list, just linkify the whole thing
+            }
+
+            const itemsArray = listItemsString.split('*')
+                .map(item => item.trim())
+                .filter(item => item.startsWith("**") && item.includes(":**"));
+
+            if (itemsArray.length === 0) {
+                return introHtml || `<p>${linkify(inputText.trim())}</p>`;
+            }
+
+            const listHtml = itemsArray.map(itemStr => {
+                const boldPartMatch = itemStr.match(/\*\*(.*?):\*\*/);
+                if (boldPartMatch && boldPartMatch[1]) {
+                    const boldText = linkify(boldPartMatch[1].trim() + ":");
+                    const priceText = linkify(itemStr.substring(boldPartMatch[0].length).trim());
+                    return `<li><strong>${boldText}</strong> ${priceText}</li>`;
+                }
+                return `<li>${linkify(itemStr.replace(/\*\*/g, ''))}</li>`;
+            }).join('');
+
+            return `${introHtml}<ul>${listHtml}</ul>`;
+        }
+
+
+        function displayMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
+            
+            if (typeof content === 'string') {
+
+                messageDiv.innerHTML = linkify(content); 
+            } else if (content instanceof HTMLElement) {
+                messageDiv.appendChild(content);
+            }
+            chatbox.appendChild(messageDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+        
+        uploadImageButton.addEventListener('click', () => {
+            imageUploadInput.click();
+        });
+
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreviewContainer.innerHTML = ''; 
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'image-preview-item';
+                    const imgPreview = document.createElement('img');
+                    imgPreview.src = e.target.result;
+                    previewItem.appendChild(imgPreview);
+                    const removeButton = document.createElement('button');
+                    removeButton.id = 'removeImagePreview';
+                    removeButton.innerHTML = '&times;'; 
+                    removeButton.title = 'Remove image';
+                    removeButton.onclick = () => {
+                        imagePreviewContainer.innerHTML = '';
+                        imagePreviewContainer.style.display = 'none';
+                        currentImageBase64 = null;
+                        currentImageMimeType = null;
+                        imageUploadInput.value = ''; 
+                    };
+                    previewItem.appendChild(removeButton);
+                    imagePreviewContainer.appendChild(previewItem);
+                    imagePreviewContainer.style.display = 'flex';
+
+                    const base64Full = e.target.result; 
+                    const parts = base64Full.split(',');
+                    if (parts.length < 2) {
+                        console.error("Invalid Base64 string format for image upload.");
+                        displayMessage('Error: Could not process image due to invalid format.', 'bot');
+                        removeButton.onclick(); 
+                        return;
+                    }
+                    const mimeTypePartMatch = parts[0].match(/:(.*?);/);
+                    if (mimeTypePartMatch && mimeTypePartMatch[1]) {
+                        currentImageMimeType = mimeTypePartMatch[1];
+                        currentImageBase64 = parts[1];
+                    } else {
+                        console.error("Could not parse MIME type from Base64 string.");
+                        displayMessage('Error: Could not determine image type.', 'bot');
+                        removeButton.onclick(); 
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else if (file) {
+                displayMessage('Please select a valid image file (e.g., JPG, PNG, GIF).', 'bot');
+                imageUploadInput.value = ''; 
+            }
+        });
+
+        async function sendMessage() {
+            const messageText = userInput.value.trim();
+            if (!messageText && !currentImageBase64) {
+                return; 
+            }
+
+            const textToSend = messageText; 
+            const imagePayloadToSend = currentImageBase64 ? { data: currentImageBase64, mimeType: currentImageMimeType } : null;
+            const imageSrcForDisplay = currentImageBase64 ? `data:${currentImageMimeType};base64,${currentImageBase64}` : null;
+
+            if (imageSrcForDisplay) {
+                const messageContentWrapper = document.createElement('div');
+                const sentImageElement = document.createElement('img');
+                sentImageElement.src = imageSrcForDisplay;
+                messageContentWrapper.appendChild(sentImageElement);
+
+                if (textToSend) {
+                    const textElement = document.createElement('p');
+                    textElement.innerHTML = linkify(textToSend); 
+                    messageContentWrapper.appendChild(textElement);
+                }
+                displayMessage(messageContentWrapper, 'user');
+            } else if (textToSend) {
+                displayMessage(textToSend, 'user'); 
+            }
+            
+            userInput.value = ''; 
+            if (imagePreviewContainer.style.display !== 'none') {
+                imagePreviewContainer.innerHTML = '';
+                imagePreviewContainer.style.display = 'none';
+            }
+            imageUploadInput.value = ''; 
+
+            currentImageBase64 = null; 
+            currentImageMimeType = null;
+
+            typingIndicator.style.display = 'flex'; 
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            const payload = { message: textToSend }; 
+            if (imagePayloadToSend) {
+                payload.image = imagePayloadToSend;
+            }
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload) 
+                });
+
+                if (!response.ok) {
+                    let errorMsg = `Error: ${response.statusText} (Status: ${response.status})`;
+                    try { 
+                        const errorData = await response.json(); 
+                        errorMsg = (errorData && errorData.reply) ? errorData.reply : errorMsg; 
+                    } catch (e) { /* Response might not be JSON */ }
+                    throw new Error(errorMsg);
+                }
+                const data = await response.json();
+
+                displayMessage(data.reply, 'bot'); 
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                displayMessage(`Bot Error: ${linkify(error.message) || 'Could not connect to the bot.'}`, 'bot');
+            } finally {
+                typingIndicator.style.display = 'none';
+                chatbox.scrollTop = chatbox.scrollHeight;
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) { 
+                event.preventDefault(); 
+                sendMessage();
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialBotMessages = chatbox.querySelectorAll('.bot-message');
+            initialBotMessages.forEach(messageElement => {
+                // Example: If initial message could be a package list
+                // if (messageElement.textContent.includes("* **")) { // Simple check
+                //    messageElement.innerHTML = formatPackageList(messageElement.textContent);
+                // } else {
+                messageElement.innerHTML = linkify(messageElement.innerHTML);
+                // }
+            });
+        });
+    </script>
+</body>
+</html>
