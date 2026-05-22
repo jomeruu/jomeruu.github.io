@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bunny / MediaDelivery Embed Converter</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --card-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-2: #0ea5e9;
+      --danger: #f87171;
+      --success: #34d399;
+      --border: rgba(255,255,255,.12);
+      --shadow: 0 24px 70px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(14,165,233,.12), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+    }
+
+    .app {
+      width: min(100%, 1050px);
+      background: rgba(17, 24, 39, .92);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+    }
+
+    header {
+      padding: 30px 30px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(26px, 4vw, 42px);
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.6;
+      max-width: 760px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    section {
+      padding: 28px 30px 30px;
+    }
+
+    section:first-child {
+      border-right: 1px solid var(--border);
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    textarea, input, pre {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 190px;
+      resize: vertical;
+    }
+
+    textarea:focus, input:focus {
+      border-color: rgba(56,189,248,.75);
+      box-shadow: 0 0 0 4px rgba(56,189,248,.12);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 10px 0 18px;
+      line-height: 1.5;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-weight: 800;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(14,165,233,.22);
+      transition: transform .15s ease, filter .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    button:active { transform: translateY(0); }
+
+    button.secondary {
+      background: var(--card-2);
+      color: var(--text);
+      box-shadow: none;
+      border: 1px solid var(--border);
+    }
+
+    .result-group {
+      margin-bottom: 18px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .row input { flex: 1; }
+
+    .copy-btn {
+      white-space: nowrap;
+      box-shadow: none;
+      padding-inline: 14px;
+    }
+
+    pre {
+      min-height: 105px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    }
+
+    .status {
+      min-height: 22px;
+      margin-top: 14px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status.good { color: var(--success); }
+    .status.bad { color: var(--danger); }
+
+    .preview-wrap {
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #020617;
+    }
+
+    .preview-ratio {
+      position: relative;
+      padding-top: 56.25%;
+    }
+
+    .preview-ratio iframe {
+      border: 0;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .empty-preview {
+      min-height: 230px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+
+    @media (max-width: 860px) {
+      body { padding: 16px; align-items: flex-start; }
+      main { grid-template-columns: 1fr; }
+      section:first-child { border-right: 0; border-bottom: 1px solid var(--border); }
+      header, section { padding-left: 20px; padding-right: 20px; }
+      .row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>MediaDelivery Embed Converter</h1>
+      <p class="sub">Paste a video ID, Bunny CDN media URL, thumbnail URL, MP4 URL, playlist URL, preview URL, or full iframe embed code. This converts it to the iframe URL format below.</p>
+      <div class="pill">Output format: https://iframe.mediadelivery.net/embed/562087/{VIDEO_ID}</div>
+    </header>
+
+    <main>
+      <section>
+        <label for="input">Input</label>
+        <textarea id="input" spellcheck="false" placeholder="Paste any supported input here..."></textarea>
+        <p class="hint">Supported examples: UUID only, <code>playlist.m3u8</code>, <code>thumbnail.jpg</code>, <code>preview.webp</code>, <code>play_1080p.mp4</code>, or a full MediaDelivery iframe snippet.</p>
+        <div class="buttons">
+          <button id="convertBtn">Convert</button>
+          <button class="secondary" id="clearBtn">Clear</button>
+          <button class="secondary" id="sampleBtn">Load sample</button>
+        </div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section>
+        <div class="result-group">
+          <label for="videoId">Extracted video ID</label>
+          <div class="row">
+            <input id="videoId" readonly placeholder="Video ID will appear here" />
+            <button class="copy-btn secondary" data-copy="videoId">Copy</button>
+          </div>
+        </div>
+
+        <div class="result-group">
+          <label for="embedUrl">Iframe URL</label>
+          <div class="row">
+            <input id="embedUrl" readonly placeholder="Embed URL will appear here" />
+            <button class="copy-btn secondary" data-copy="embedUrl">Copy</button>
+          </div>
+        </div>
+
+        <div class="result-group">
+          <label for="embedCode">Responsive iframe embed code</label>
+          <pre id="embedCode"></pre>
+          <div class="buttons">
+            <button class="copy-btn secondary" data-copy="embedCode">Copy embed code</button>
+          </div>
+        </div>
+
+        <label>Preview</label>
+        <div id="preview" class="preview-wrap">
+          <div class="empty-preview">Convert a video ID or URL to preview the iframe here.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const LIBRARY_ID = "562087";
+    const IFRAME_BASE = `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/`;
+    const PLAYER_BASE = `https://player.mediadelivery.net/embed/${LIBRARY_ID}/`;
+
+    const inputEl = document.getElementById("input");
+    const videoIdEl = document.getElementById("videoId");
+    const embedUrlEl = document.getElementById("embedUrl");
+    const embedCodeEl = document.getElementById("embedCode");
+    const statusEl = document.getElementById("status");
+    const previewEl = document.getElementById("preview");
+
+    function extractVideoId(rawInput) {
+      const text = String(rawInput || "").trim();
+      if (!text) return null;
+
+      const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
+
+      // Works for UUID-only input and URLs/snippets containing the UUID.
+      const uuidMatch = text.match(uuidRegex);
+      if (uuidMatch) return uuidMatch[0];
+
+      // Fallback for non-UUID IDs in embed/library URL format.
+      const escapedLibrary = LIBRARY_ID.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const embedPattern = new RegExp(`(?:iframe|player)\\.mediadelivery\\.net\\/embed\\/${escapedLibrary}\\/([^?\\s\"'<>/]+)`, "i");
+      const embedMatch = text.match(embedPattern);
+      if (embedMatch) return embedMatch[1];
+
+      // Fallback for Bunny CDN format: domain/{videoId}/file.ext
+      try {
+        const urlLike = text.match(/https?:\/\/[^\s"'<>]+/i)?.[0] || text;
+        const url = new URL(urlLike);
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (parts.length >= 2) return parts[0];
+      } catch (_) {}
+
+      return null;
+    }
+
+    function makeEmbedCode(videoId) {
+      const src = `${PLAYER_BASE}${videoId}?autoplay=true&loop=false&muted=true&preload=true&responsive=true`;
+      return `<div style="position:relative;padding-top:56.25%;"><iframe src="${src}" loading="lazy" style="border:0;position:absolute;top:0;height:100%;width:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true"></iframe></div>`;
+    }
+
+    function setStatus(message, type = "") {
+      statusEl.textContent = message;
+      statusEl.className = `status ${type}`.trim();
+    }
+
+    function convert() {
+      const videoId = extractVideoId(inputEl.value);
+
+      if (!videoId) {
+        videoIdEl.value = "";
+        embedUrlEl.value = "";
+        embedCodeEl.textContent = "";
+        previewEl.innerHTML = `<div class="empty-preview">No valid video ID found. Paste a UUID, media URL, or iframe snippet.</div>`;
+        setStatus("No valid video ID found.", "bad");
+        return;
+      }
+
+      const iframeUrl = `${IFRAME_BASE}${videoId}`;
+      const embedCode = makeEmbedCode(videoId);
+
+      videoIdEl.value = videoId;
+      embedUrlEl.value = iframeUrl;
+      embedCodeEl.textContent = embedCode;
+      previewEl.innerHTML = `<div class="preview-ratio"><iframe src="${iframeUrl}" loading="lazy" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true"></iframe></div>`;
+      setStatus("Converted successfully.", "good");
+    }
+
+    async function copyValue(targetId) {
+      const target = document.getElementById(targetId);
+      const value = target.tagName.toLowerCase() === "pre" ? target.textContent : target.value;
+
+      if (!value) {
+        setStatus("Nothing to copy yet.", "bad");
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(value);
+        setStatus("Copied to clipboard.", "good");
+      } catch (_) {
+        const temp = document.createElement("textarea");
+        temp.value = value;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        document.body.removeChild(temp);
+        setStatus("Copied to clipboard.", "good");
+      }
+    }
+
+    document.getElementById("convertBtn").addEventListener("click", convert);
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      inputEl.value = "";
+      videoIdEl.value = "";
+      embedUrlEl.value = "";
+      embedCodeEl.textContent = "";
+      previewEl.innerHTML = `<div class="empty-preview">Convert a video ID or URL to preview the iframe here.</div>`;
+      setStatus("");
+      inputEl.focus();
+    });
+
+    document.getElementById("sampleBtn").addEventListener("click", () => {
+      inputEl.value = "https://vz-e57b0716-860.b-cdn.net/697dc603-b89f-4e1b-a1a7-982300194a24/play_1080p.mp4";
+      convert();
+    });
+
+    document.querySelectorAll("[data-copy]").forEach(button => {
+      button.addEventListener("click", () => copyValue(button.dataset.copy));
+    });
+
+    inputEl.addEventListener("input", () => {
+      if (inputEl.value.trim()) convert();
+      else setStatus("");
+    });
+
+    inputEl.addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") convert();
+    });
+  </script>
+</body>
+</html>
